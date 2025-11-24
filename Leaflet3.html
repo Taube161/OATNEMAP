@@ -1,12 +1,12 @@
-Leaflet3.html
+<!DOCTYPE html>
 <html lang="de">
 <head>
 <meta charset="UTF-8">
 <title>Interaktive Karte mobil & PC-freundlich</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
-    body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
-    #map { height: 90vh; }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
+    #map { height: 90vh; width: 100%; }
     #filter { padding: 5px; background: #f0f0f0; }
     .popup-content { width: 220px; max-height: 350px; overflow-y: auto; }
     input, select, button { width: 100%; margin-top: 5px; font-size: 16px; padding: 6px; box-sizing: border-box; }
@@ -164,4 +164,3 @@ filterSelect.addEventListener('change', function() {
 </script>
 </body>
 </html>
-
