@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Interaktive Karte mobil & PC-freundlich</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+    body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
+    #map { height: 90vh; }
+    #filter { padding: 5px; background: #f0f0f0; }
+    .popup-content { width: 220px; max-height: 350px; overflow-y: auto; }
+    input, select, button { width: 100%; margin-top: 5px; font-size: 16px; padding: 6px; box-sizing: border-box; }
+    .popup-image { max-width: 100%; max-height: 150px; display: block; margin-top: 5px; }
+</style>
+</head>
+<body>
+<div id="filter">
+    <label>Filter Kategorie:
+        <select id="categoryFilter">
+            <option value="all">Alle</option>
+            <option value="Sticker">Sticker</option>
+            <option value="Graffiti">Graffiti</option>
+            <option value="Plakat">Plakat</option>
+        </select>
+    </label>
+</div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+// Karte auf Neuss zentrieren
+const map = L.map('map', { zoomControl: true, tap: true }).setView([51.2040, 6.6828], 13);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+// Kategorie-Icons
+const icons = {
+    Sticker: L.icon({ iconUrl: 'https://maps.google.com/mapfiles/ms/icons/green-dot.png', iconSize: [32,32], iconAnchor: [16,32] }),
+    Graffiti: L.icon({ iconUrl: 'https://maps.google.com/mapfiles/ms/icons/blue-dot.png', iconSize: [32,32], iconAnchor: [16,32] }),
+    Plakat: L.icon({ iconUrl: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png', iconSize: [32,32], iconAnchor: [16,32] }),
+};
+
+let leafletMarkers = [];
+
+// Marker aus LocalStorage laden
+const markersData = JSON.parse(localStorage.getItem('markers') || '[]');
+markersData.forEach(data => addMarker(data.lat, data.lng, data.text, data.img, data.category));
+
+// Klick auf Karte: neuen Marker setzen
+map.on('click', function(e) {
+    createNewMarker(e.latlng);
+});
+
+function createNewMarker(latlng) {
+    // Neuen Marker direkt mit Default-Kategorie setzen
+    const marker = L.marker(latlng, { icon: icons['Sticker'] }).addTo(map);
+    const markerData = { marker, lat: latlng.lat, lng: latlng.lng, text: '', img: '', category: 'Sticker' };
+    leafletMarkers.push(markerData);
+
+    openMarkerForm(latlng, markerData);
+    saveAllMarkers();
+}
+
+function openMarkerForm(latlng, markerData) {
+    const popupContent = `
+        <div class="popup-content">
+            <form id="markerForm">
+                <input type="text" id="markerText" placeholder="Text eingeben" value="${markerData.text}" />
+                <input type="file" id="markerImage" accept="image/*" />
+                <label>Kategorie:
+                    <select id="markerCategory">
+                        <option value="Sticker" ${markerData.category==='Sticker'?'selected':''}>Sticker</option>
+                        <option value="Graffiti" ${markerData.category==='Graffiti'?'selected':''}>Graffiti</option>
+                        <option value="Plakat" ${markerData.category==='Plakat'?'selected':''}>Plakat</option>
+                    </select>
+                </label>
+                <button type="submit">Speichern</button>
+                <button id="deleteMarker">Löschen</button>
+            </form>
+        </div>
+    `;
+    markerData.marker.bindPopup(popupContent, { maxWidth: 250 }).openPopup();
+
+    setTimeout(() => {
+        const form = document.getElementById('markerForm');
+        form.addEventListener('submit', function(event) {
+            event.preventDefault();
+            const newText = document.getElementById('markerText').value;
+            const file = document.getElementById('markerImage').files[0];
+            const newCategory = document.getElementById('markerCategory').value;
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    markerData.img = e.target.result;
+                    finalizeMarker(markerData, newText, newCategory);
+                };
+                reader.readAsDataURL(file);
+            } else {
+                finalizeMarker(markerData, newText, newCategory);
+            }
+        });
+
+        document.getElementById('deleteMarker').addEventListener('click', function(event) {
+            event.preventDefault();
+            deleteMarker(markerData);
+        });
+    }, 100);
+}
+
+function finalizeMarker(markerData, text, category) {
+    markerData.text = text;
+    markerData.category = category;
+    markerData.marker.setIcon(icons[category]);
+    markerData.marker.setPopupContent(generatePopupContent(markerData));
+    saveAllMarkers();
+}
+
+function addMarker(lat, lng, text, imgSrc, category) {
+    const marker = L.marker([lat, lng], { icon: icons[category] }).addTo(map);
+    const markerData = { marker, lat, lng, text, img: imgSrc, category };
+    leafletMarkers.push(markerData);
+    marker.bindPopup(generatePopupContent(markerData), { maxWidth: 250 });
+}
+
+function generatePopupContent(markerData) {
+    let content = `${markerData.text || ''}`;
+    if (markerData.img) content += `<br/><img src="${markerData.img}" class="popup-image" />`;
+    content += `<br>Kategorie: ${markerData.category}`;
+    content += `<br/><button onclick="openMarkerFormFromButton(${leafletMarkers.indexOf(markerData)})">Bearbeiten</button>`;
+    return content;
+}
+
+function deleteMarker(markerData) {
+    map.removeLayer(markerData.marker);
+    leafletMarkers = leafletMarkers.filter(m => m !== markerData);
+    saveAllMarkers();
+}
+
+function saveAllMarkers() {
+    const data = leafletMarkers.map(m => ({ lat: m.lat, lng: m.lng, text: m.text, img: m.img, category: m.category }));
+    localStorage.setItem('markers', JSON.stringify(data));
+}
+
+window.openMarkerFormFromButton = function(index) {
+    const markerData = leafletMarkers[index];
+    openMarkerForm(markerData.marker.getLatLng(), markerData);
+}
+
+// Kategorie-Filter
+const filterSelect = document.getElementById('categoryFilter');
+filterSelect.addEventListener('change', function() {
+    const selected = filterSelect.value;
+    leafletMarkers.forEach(m => {
+        if (selected === 'all' || m.category === selected) {
+            if (!map.hasLayer(m.marker)) map.addLayer(m.marker);
+        } else {
+            if (map.hasLayer(m.marker)) map.removeLayer(m.marker);
+        }
+    });
+});
+</script>
+</body>
+</html>
