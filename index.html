@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>Interaktive Karte mobil & PC-freundlich</title>
+<title>Interaktive Karte – PC & Touch</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
     body, html { margin: 0; padding: 0; height: 100%; font-family: Arial, sans-serif; }
@@ -28,8 +28,8 @@
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-// Karte auf Neuss zentrieren
-const map = L.map('map', { zoomControl: true, tap: true }).setView([51.2040, 6.6828], 13);
+// Karte auf Neuss zentrieren, tap: false für Touch-Geräte
+const map = L.map('map', { zoomControl: true, tap: false }).setView([51.2040, 6.6828], 13);
 
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
@@ -48,21 +48,16 @@ let leafletMarkers = [];
 const markersData = JSON.parse(localStorage.getItem('markers') || '[]');
 markersData.forEach(data => addMarker(data.lat, data.lng, data.text, data.img, data.category));
 
-// Klick auf Karte: neuen Marker setzen
-map.on('click', function(e) {
-    createNewMarker(e.latlng);
-});
-
+// Funktion zum neuen Marker
 function createNewMarker(latlng) {
-    // Neuen Marker direkt mit Default-Kategorie setzen
     const marker = L.marker(latlng, { icon: icons['Sticker'] }).addTo(map);
     const markerData = { marker, lat: latlng.lat, lng: latlng.lng, text: '', img: '', category: 'Sticker' };
     leafletMarkers.push(markerData);
-
     openMarkerForm(latlng, markerData);
     saveAllMarkers();
 }
 
+// Pop-up Formular
 function openMarkerForm(latlng, markerData) {
     const popupContent = `
         <div class="popup-content">
@@ -118,6 +113,7 @@ function finalizeMarker(markerData, text, category) {
     saveAllMarkers();
 }
 
+// Marker hinzufügen (z.B. beim Laden aus LocalStorage)
 function addMarker(lat, lng, text, imgSrc, category) {
     const marker = L.marker([lat, lng], { icon: icons[category] }).addTo(map);
     const markerData = { marker, lat, lng, text, img: imgSrc, category };
@@ -160,6 +156,17 @@ filterSelect.addEventListener('change', function() {
             if (map.hasLayer(m.marker)) map.removeLayer(m.marker);
         }
     });
+});
+
+// Touch & Click Event für Marker setzen
+map.on('click', function(e) { createNewMarker(e.latlng); });
+
+map.on('touchend', function(e) {
+    if (e.changedTouches && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        const latlng = map.containerPointToLatLng([touch.clientX, touch.clientY]);
+        createNewMarker(latlng);
+    }
 });
 </script>
 </body>
